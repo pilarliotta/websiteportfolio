@@ -1,100 +1,143 @@
-// CC Assignment 5 — Optical Illusion - Pilar Liotta
-// Canvas: 600 x 600
+// CC Lecture/Lab Assigment 2 Face Generator
+//Pilar Liotta
 
+let sad = 240;
+let smile = 240;
+let morph = 0;   // 0 = small circle, 1 = big square
+let target = 0;  // target morph value
+let palIdx = 0;
 
-let img;
-let r = 120;              // size of the ball
-let sx = 0, sy = 0;       // ball position
-let rotX = 0, rotY = 0;   // ball spins when I drag it
-let pmx = 0, pmy = 0;     //  drag distance
-let draggingMove = false; //dragging the ball
-
-function preload() {
-  img = loadImage('12.jpg.webp');
-}
+const palettes = [
+  { color1: [255, 105, 180], color2: [0, 255, 255] },
+  { color1: [0, 255, 0], color2: [249,52,49 ] },
+  { color1: [255,154,0], color2: [227,255,0] },
+];
 
 function setup() {
-  createCanvas(600, 600, WEBGL);
+  createCanvas(400, 400);
+  colorMode(RGB);
   noStroke();
+  frameRate(60);
+  bgColor = color(40); // background
 }
 
 function draw() {
-  // draw my background image first , blurry for vibes
-  push();
-  resetMatrix(); camera();
-  ortho(-width/2, width/2, -height/2, height/2, 0.1, 10000);
-  imageMode(CENTER);
-  image(img, 0, 0, width, height);
-  filter(BLUR, 2);
-  pop();
-
-  // orbit camera 
-  if (!draggingMove) orbitControl();
-
-  // stops the ball from escaping the screen
-  sx = constrain(sx, -width/2 + r, width/2 - r);
-  sy = constrain(sy, -height/2 + r, height/2 - r);
-
-  // spin 
-  if (draggingMove && mouseIsPressed) {
-    let dx = mouseX - pmx;
-    let dy = mouseY - pmy;
-
-    // make it grow/shrink 
-    r = r - dy * 0.2;
-    r = constrain(r, 20, 300); // so it doesn't vanish 
-    // move the ball around
-    sx += dx;
-    sy += dy;
-
-    // contained 
-    sx = constrain(sx, -width/2 + r, width/2 - r);
-    sy = constrain(sy, -height/2 + r, height/2 - r);
+  background(bgColor); // background
   
-    // slight rotation 
-    rotY += dx / r;
-    rotX += -dy / r; 
-    
-  }
+  // morph in
+  morph = lerp(morph, target, 0.12);
+  const u = easeInOutCubic(morph);
 
-  //  mouse position 
-  pmx = mouseX;
-  pmy = mouseY;
+  // face
+  Face(sad, smile, u);
+  
+    // instruction text on bottom 
+  fill(255);
+  textSize(11);
+  text(
+    "Space = morph | C = change colors | R = randomize | click = move & morph",
+    width/25, height - 15
+  );
+}
 
-  //  the ball 
+
+function Face(x, y, u) {
   push();
-  translate(sx, sy, 0);
-  rotateX(rotX);
-  rotateY(rotY);
-  texture(img);
-  sphere(r);
+  translate(x, y);
+  
+  // Size changes small to big
+  const size = lerp(70, 200, u);
+  
+  // Shape changes circle to square
+  const corner = lerp(size / 2, 5, u);
+  
+  //  transition between two colors
+  const pal = palettes[palIdx];
+  const faceColor = lerpColor(
+    color(pal.color1[0], pal.color1[1], pal.color1[2]),
+    color(pal.color2[0], pal.color2[1], pal.color2[2]),
+    u
+  );
+
+  //  face shape
+  rectMode(CENTER);
+  fill(faceColor);
+  rect(0, 0, size, size, corner);
+  
+  //eyes 
+  fill(20);
+  let eyeSize = size * 0.10;
+  let eyeOffsetX = lerp(size * 0.18, size * 0.22, u);
+  let eyeY = -size * 0.15;
+  
+  ellipse(-eyeOffsetX, eyeY, eyeSize);
+  ellipse(eyeOffsetX, eyeY, eyeSize);
+  
+  //mouth 
+  stroke(70);
+  strokeWeight(max(4, size * 0.03));
+  noFill();
+  
+  let mouthY = size * 0.15;
+  let mouthWidth = size * 0.3;
+  
+  if (u < 0.3) {
+    // meh face
+    line(-mouthWidth/2, mouthY, mouthWidth/2, mouthY);
+  } else if (u < 0.7) {
+    // smile
+    arc(0, mouthY, mouthWidth, mouthWidth * 0.3, 0, PI);
+  } else {
+    // big smile
+    arc(0, mouthY, mouthWidth, mouthWidth * 0.7, 0, PI);
+  }
+  
   pop();
-
-  // NESTED FOR LOOP — sparkle dots//  requirement for assignment
-  const cell = 85;
-  resetMatrix(); camera(); ortho();
-  noStroke();
-  for (let y = cell/2; y < height; y += cell) {
-    for (let x = cell/2; x < width; x += cell) {
-      fill(255, 220); // soft white dots sparkly 
-      ellipse(x - width/2, y - height/2, 6, 6);
-    }
-  }
 }
 
+function keyPressed() {
+  if (key === ' ') {
+    // Spacebar goes to morphing colors 
+    target = target === 0 ? 1 : 0;
+  }
+  if (key === 'C' || key === 'c') {
+    // change color palettes
+    palIdx = (palIdx + 1) % palettes.length;
+  }
+  if (key === 'R' || key === 'r') {
+    // randomize
+    randomizeColors();
+    randomizeBackground();
+  }
+
+}
+ 
 function mousePressed() {
-  // start dragging only if I'm actually clicking on the ball
-  if (mouseButton === LEFT) {
-    const mx = mouseX - width/2;
-    const my = mouseY - height/2;
-    if (dist(mx, my, sx, sy) <= r + 20) {
-      draggingMove = true;
-      pmx = mouseX; pmy = mouseY;
-    }
+  //  move face and triggers morph
+  sad = mouseX;
+  smile = mouseY;
+  target = 1; // square
+  randomizeBackground(); //  change background on click
+  
+  // return back
+   setTimeout(() => { target = 0; }, 1000);
+
+}
+
+function randomizeColors() {
+  for (let i = 0; i < palettes.length; i++) {
+    palettes[i].color1 = [random(255), random(255), random(255)];
+    palettes[i].color2 = [random(255), random(255), random(255)];
   }
+  palIdx = 0;
 }
 
-function mouseReleased() {
-  draggingMove = false;
+function randomizeBackground() {
+  //random color for the background
+  bgColor = color(random(255), random(255), random(255));
 }
 
+function easeInOutCubic(u) {
+  return u < 0.5 ? 4 * u * u * u : 1 - pow(-2 * u + 2, 3) / 2;
+}
+  
