@@ -1,143 +1,81 @@
-// CC Lecture/Lab Assigment 2 Face Generator
-//Pilar Liotta
+// CC Assignment 3 — Experimental Clock - Pilar Liotta
+// Canvas: 600 x 600
 
-let sad = 240;
-let smile = 240;
-let morph = 0;   // 0 = small circle, 1 = big square
-let target = 0;  // target morph value
-let palIdx = 0;
+let pixelFont;
+let use24h = true;   // clock time
+let fontSize = 40;   //  size
+let spacing = 0.85;  // space w/ the text
 
+// colors are the background, text color , hover color
 const palettes = [
-  { color1: [255, 105, 180], color2: [0, 255, 255] },
-  { color1: [0, 255, 0], color2: [249,52,49 ] },
-  { color1: [255,154,0], color2: [227,255,0] },
+  { bg: [250,250,250], fg: [25,25,25],   hover: [137,243,54] },
+  { bg: [249, 0, 255],    fg: [235,235,235], hover: [82, 0, 255] },
+  { bg: [8,18,28],     fg: [137,243,54], hover: [255,255,255] }
 ];
+let paletteIdx = 0;
+
+function preload() {
+  pixelFont = loadFont('PixelifySans.ttf'); // google font called Pixelify Sans
+}
 
 function setup() {
-  createCanvas(400, 400);
-  colorMode(RGB);
+  createCanvas(600, 600);
+  textFont(pixelFont);
+  textAlign(CENTER, CENTER);
   noStroke();
-  frameRate(60);
-  bgColor = color(40); // background
 }
 
 function draw() {
-  background(bgColor); // background
-  
-  // morph in
-  morph = lerp(morph, target, 0.12);
-  const u = easeInOutCubic(morph);
+  const P = palettes[paletteIdx % palettes.length];
+  background(P.bg);
 
-  // face
-  Face(sad, smile, u);
-  
-    // instruction text on bottom 
-  fill(255);
-  textSize(11);
-  text(
-    "Space = morph | C = change colors | R = randomize | click = move & morph",
-    width/25, height - 15
-  );
-}
+  // clock time
+  let h = hour(), m = minute(), s = second();
+  let dispH = use24h ? h : ((h % 12) === 0 ? 12 : h % 12);
+  const hh = nf(dispH, 2);
+  const mm = nf(m, 2);
+  const ss = nf(s, 2);
+  const timeStr = `${hh}:${mm}:${ss}`;
 
+  // time grid
+  textSize(fontSize);
+  const tw = textWidth(timeStr);
+  const th = fontSize * 1.1;         //  length
+  const cellW = tw * (1 + (1 - spacing)); // how tighter the grid is
+  const cellH = th * (1 + (1 - spacing));
 
-function Face(x, y, u) {
-  push();
-  translate(x, y);
-  
-  // Size changes small to big
-  const size = lerp(70, 200, u);
-  
-  // Shape changes circle to square
-  const corner = lerp(size / 2, 5, u);
-  
-  //  transition between two colors
-  const pal = palettes[palIdx];
-  const faceColor = lerpColor(
-    color(pal.color1[0], pal.color1[1], pal.color1[2]),
-    color(pal.color2[0], pal.color2[1], pal.color2[2]),
-    u
-  );
+  // grid fit
+  const cols = max(1, floor(width / cellW));
+  const rows = max(1, floor(height / cellH));
+  const startX = (width  - cols * cellW) / 2 + cellW / 2;
+  const startY = (height - rows * cellH) / 2 + cellH / 2;
 
-  //  face shape
-  rectMode(CENTER);
-  fill(faceColor);
-  rect(0, 0, size, size, corner);
-  
-  //eyes 
-  fill(20);
-  let eyeSize = size * 0.10;
-  let eyeOffsetX = lerp(size * 0.18, size * 0.22, u);
-  let eyeY = -size * 0.15;
-  
-  ellipse(-eyeOffsetX, eyeY, eyeSize);
-  ellipse(eyeOffsetX, eyeY, eyeSize);
-  
-  //mouth 
-  stroke(70);
-  strokeWeight(max(4, size * 0.03));
-  noFill();
-  
-  let mouthY = size * 0.15;
-  let mouthWidth = size * 0.3;
-  
-  if (u < 0.3) {
-    // meh face
-    line(-mouthWidth/2, mouthY, mouthWidth/2, mouthY);
-  } else if (u < 0.7) {
-    // smile
-    arc(0, mouthY, mouthWidth, mouthWidth * 0.3, 0, PI);
-  } else {
-    // big smile
-    arc(0, mouthY, mouthWidth, mouthWidth * 0.7, 0, PI);
+  // changes color on hover
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = startX + c * cellW;
+      const y = startY + r * cellH;
+
+      // way to hover with the width and height 
+      const hover =
+        mouseX >= x - tw/2 && mouseX <= x + tw/2 &&
+        mouseY >= y - th/2 && mouseY <= y + th/2;
+
+      if (hover) fill(P.hover);
+      else fill(P.fg);
+
+      text(timeStr, x, y);
+    }
   }
-  
-  pop();
+  // written instructions
+  textSize(12);
+  fill(P.fg[0], P.fg[1], P.fg[2], 140);
+  text("t = 12 or 24hrs ,  q / w = size ,  c = colors", width/2, height - 16);
 }
 
 function keyPressed() {
-  if (key === ' ') {
-    // Spacebar goes to morphing colors 
-    target = target === 0 ? 1 : 0;
-  }
-  if (key === 'C' || key === 'c') {
-    // change color palettes
-    palIdx = (palIdx + 1) % palettes.length;
-  }
-  if (key === 'R' || key === 'r') {
-    // randomize
-    randomizeColors();
-    randomizeBackground();
-  }
-
+  if (key === 't' || key === 'T') use24h = !use24h;
+  if (key === 'q') fontSize = max(10, fontSize - 2);
+  if (key === 'w') fontSize = min(100, fontSize + 2);
+  if (key === 'c' || key === 'C') paletteIdx++;
 }
- 
-function mousePressed() {
-  //  move face and triggers morph
-  sad = mouseX;
-  smile = mouseY;
-  target = 1; // square
-  randomizeBackground(); //  change background on click
-  
-  // return back
-   setTimeout(() => { target = 0; }, 1000);
-
-}
-
-function randomizeColors() {
-  for (let i = 0; i < palettes.length; i++) {
-    palettes[i].color1 = [random(255), random(255), random(255)];
-    palettes[i].color2 = [random(255), random(255), random(255)];
-  }
-  palIdx = 0;
-}
-
-function randomizeBackground() {
-  //random color for the background
-  bgColor = color(random(255), random(255), random(255));
-}
-
-function easeInOutCubic(u) {
-  return u < 0.5 ? 4 * u * u * u : 1 - pow(-2 * u + 2, 3) / 2;
-}
-  
